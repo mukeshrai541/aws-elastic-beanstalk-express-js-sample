@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # DinD service: Allows Jenkins to run Docker commands safely inside its own container.
+  # Uses privileged mode for Docker daemon operations and TLS for secure communication.
+  # Network alias 'docker' enables Jenkins to reach it via tcp://docker:2376.
+  dind:
+    image: docker:dind  # Official Docker-in-Docker image.
+    container_name: dind
+    privileged: true  # Required for DinD to run the Docker daemon.
+    user: root  # Run as root to manage Docker processes.
+    networks:
+      jenkins:
+        aliases:
+          - docker  # Alias for easy addressing from Jenkins.
+    environment:
+      - DOCKER_TLS_CERTDIR=/certs  # Enables TLS certificates for secure remote access.
+    volumes:
+      - dind-certs-ca:/certs/ca  # Volume for CA certificates (shared for TLS).
+      - dind-certs-client:/certs/client  # Volume for client certificates (shared with Jenkins).
+      - dind-docker-data:/var/lib/docker  # Named volume for Docker layer cache (persists images/layers for faster builds).
+
+  # Jenkins service: Main CI server that uses DinD for building/pushing images in pipelines.
+  # Connects to DinD via TLS for security, avoiding direct socket mounts.
+  # Publishes ports for web access (8080) and agent communication (50000).
+  jenkins:
+    image: jenkins/jenkins:lts-jdk11  # Long-term support Jenkins with JDK 11.
+    container_name: jenkins
+    restart: unless-stopped  # Automatically restart unless manually stopped.
+    user: root  # Run as root to allow Docker commands if needed (though we use remote DinD).
+    networks:
+      - jenkins  # Same network as DinD for internal communication.
+    environment:
+      - DOCKER_HOST=tcp://docker:2376  # Points to DinD service via alias and TLS port.
+      - DOCKER_CERT_PATH=/certs/client  # Path to TLS client certificates.
+      - DOCKER_TLS_VERIFY=1  # Enforces TLS verification for secure connection.
+    volumes:
+      - dind-certs-client:/certs/client:ro  # Read-only mount of client certs from DinD.
+      - jenkins-home:/var/jenkins_home  # Named volume for Jenkins home (persists jobs, configs, plugins).
+    ports:
+      - 8080:8080  # Jenkins web UI.
+      - 50000:50000  # For Jenkins agents (if needed later).
+
+# Custom network for isolation between services.
+networks:
+  jenkins:
+    name: jenkins  # Explicit name for the network.
+
+# Named volumes for persistence and caching.
+volumes:
+  dind-certs-ca:  # CA certificates for TLS.
+  dind-certs-client:  # Client certificates for TLS.
+  dind-docker-data:  # Docker layer cache for DinD.
+  jenkins-home:  # Jenkins configuration and data.
