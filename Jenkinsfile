@@ -47,7 +47,7 @@ pipeline {
             steps {
                 script {
                     // Build the image with a tag including build number
-                    dockerImage = docker.build("yourusername/aws-express-app:${env.BUILD_ID}")
+                    dockerImage = docker.build("mukeshrai541/aws-express-app:${env.BUILD_ID}")
                 }
             }
         }
