@@ -1,54 +1,49 @@
 pipeline {
-    agent any  // Run on Jenkins node itself
-
+    agent {
+        docker { image 'node:16' }  // Installs Node.js via Docker image
+    }
     stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-
         stage('Install Dependencies') {
             steps {
-                sh 'docker run --rm -v $(pwd):/app -w /app node:16-alpine npm install'
+                sh 'npm install --save'  // Installs Node dependencies
             }
         }
-
-        stage('Run Unit Tests') {
+        stage('Run Tests') {
             steps {
-                sh 'docker run --rm -v $(pwd):/app -w /app node:16-alpine npm test'
+                sh 'npm test'  // Runs unit tests
             }
         }
-
+        stage('Run App') {
+            steps {
+                sh '''
+                npm start &  // Start the app in background
+                sleep 5  // Wait for app to start
+                curl -f http://localhost:8081 || exit 1  // Verify app is running
+                kill %1  // Stop the background process
+                '''
+            }
+        }
         stage('Security Scan') {
             steps {
-                sh 'docker run --rm -v $(pwd):/app -w /app node:16-alpine sh -c "npm install -g snyk && snyk auth $SNYK_TOKEN && snyk test --severity-threshold=high --fail-on=upgradable"'
+                withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+                    sh 'npm install -g snyk'  // Install Snyk CLI
+                    sh 'snyk auth $SNYK_TOKEN'  // Authenticate
+                    sh 'snyk test --fail-on=upgradable --severity-threshold=high'  // Run Snyk, fail on High/Critical
+                }
             }
         }
-
         stage('Build Docker Image') {
             steps {
-                script {
-                    dockerImage = docker.build("mukeshrai541/aws-express-app:${env.BUILD_ID}")
-                }
+                sh 'docker build -t mukeshrai541/express-app:latest .'  // Replace with your username
             }
         }
-
         stage('Push to Registry') {
             steps {
-                script {
-                    docker.withRegistry('https://registry.hub.docker.com', 'docker-hub') {
-                        dockerImage.push()
-                        dockerImage.push('latest')
-                    }
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh 'echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin'
+                    sh 'docker push mukeshrai541/express-app:latest'
                 }
             }
-        }
-    }
-
-    post {
-        always {
-            cleanWs()
         }
     }
 }
