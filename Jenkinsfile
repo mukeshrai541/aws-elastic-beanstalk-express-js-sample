@@ -1,6 +1,8 @@
 pipeline {
     agent {
-        docker { image 'node:16' }  // Installs Node.js via Docker image
+        docker {
+            image 'node:16' 
+        }  // Installs Node.js via Docker image
     }
     stages {
         stage('Install Dependencies') {
