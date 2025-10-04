@@ -6,8 +6,8 @@ pipeline {
         }
     }
     environment {
-        SNYK_TOKEN = credentials('snyk-token') // Add Snyk token in Jenkins credentials
-        DOCKERHUB_CREDENTIALS = credentials('docker-hub-credentials') // Add Docker Hub credentials
+        SNYK_TOKEN = credentials('snyk-token') // Snyk API token
+        DOCKERHUB_CREDENTIALS = credentials('docker-hub-credentials') // Docker Hub credentials
     }
     stages {
         stage('Setup Docker') {
@@ -48,10 +48,14 @@ pipeline {
                 }
             }
         }
+        stage('Archive Artifacts') {
+            steps {
+                archiveArtifacts artifacts: 'npm-debug.log', allowEmptyArchive: true
+            }
+        }
     }
     post {
         always {
-            archiveArtifacts artifacts: 'npm-debug.log', allowEmptyArchive: true
             cleanWs()
         }
     }
