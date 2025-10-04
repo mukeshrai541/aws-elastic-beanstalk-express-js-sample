@@ -1,5 +1,7 @@
 pipeline {
-    agent any  // Runs on any available agent
+    agent {
+        docker { image 'node:16' }
+    }
     environment {
         DOCKER_HUB_USERNAME = 'mukeshrai541' // Your Docker Hub username
         DOCKER_IMAGE_NAME = 'express-app'
@@ -32,7 +34,7 @@ pipeline {
         }
         stage('Push to Registry') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {  // Added comma after usernameVariable
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                     sh 'echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin'
                     sh "docker push ${DOCKER_HUB_USERNAME}/${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
                 }
