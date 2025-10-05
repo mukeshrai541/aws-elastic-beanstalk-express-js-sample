@@ -1,33 +1,73 @@
 pipeline {
     agent {
-        docker { image 'node:16' }  // Use Node 16 as build agent
+        docker {
+            image 'node:16'
+            args '-u root:root'  // Run as root to allow Docker commands if needed
+        }
     }
+
+    environment {
+        DOCKER_REGISTRY = "your-docker-registry"  // e.g., docker.io/username
+        APP_NAME = "my-node-app"
+        SNYK_TOKEN = credentials('snyk-token')  // Add Snyk API token in Jenkins credentials
+    }
+
     stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
         stage('Install Dependencies') {
             steps {
-                sh 'npm install --save'  // Install deps
+                sh 'npm install --save'
             }
         }
-        stage('Run Tests') {
+
+        stage('Run Unit Tests') {
             steps {
-                sh 'npm test'  // Run unit tests (assume tests exist; add if needed)
+                sh 'npm test'
             }
         }
+
+        stage('Security Scan') {
+            steps {
+                sh '''
+                    npm install -g snyk
+                    snyk auth $SNYK_TOKEN
+                    snyk test --severity-threshold=high
+                '''
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
                 script {
-                    def appImage = docker.build("your-username/app:${env.BUILD_ID}")  // Build image
+                    docker.build("${DOCKER_REGISTRY}/${APP_NAME}:latest")
                 }
             }
         }
-        stage('Push to Registry') {
+
+        stage('Push Docker Image') {
             steps {
-                script {
-                    docker.withRegistry('https://index.docker.io/v1/', 'docker-credentials-id') {  // Use your Docker Hub creds (add to Jenkins first)
-                        appImage.push()
-                    }
+                withDockerRegistry([credentialsId: 'docker-credentials', url: "https://${DOCKER_REGISTRY}"]) {
+                    sh "docker push ${DOCKER_REGISTRY}/${APP_NAME}:latest"
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            echo 'Cleaning up workspace...'
+            cleanWs()
+        }
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed! Check logs above.'
         }
     }
 }
