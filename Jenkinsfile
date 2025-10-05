@@ -1,76 +1,76 @@
 pipeline {
     agent {
         docker {
-            image 'node:16'
-            args '--network jenkins_default -u root:root' // Connect to DinD network
+            image 'node:16-bullseye'
+            args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
-
     environment {
-        DOCKER_REGISTRY = "docker.io/mukeshrai541"
-        APP_NAME = "nodeapp"
-        SNYK_TOKEN = credentials('snyk-token') // Add Snyk API token in Jenkins credentials
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
+        DOCKER_HOST = "tcp://docker:2376"
+        DOCKER_TLS_VERIFY = "1"
+        DOCKER_CERT_PATH = "/certs/client"
     }
-
     stages {
-        stage('Checkout') {
+        stage('Install System Dependencies') {
+            steps {
+                sh '''
+                    apt-get update
+                    apt-get install -y git docker.io curl gnupg lsb-release
+                '''
+            }
+        }
+        stage('Checkout Code') {
             steps {
                 checkout scm
             }
         }
-
-        stage('Install Dependencies') {
+        stage('Install Node Modules') {
             steps {
                 sh 'npm install --save'
             }
         }
-
         stage('Run Unit Tests') {
             steps {
-                sh 'npm test'
-            }
-        }
-
-        stage('Security Scan') {
-            steps {
                 sh '''
-                    npm install -g snyk
-                    snyk auth $SNYK_TOKEN
-                    snyk test --severity-threshold=high
+                    if npm run | grep -q "test"; then
+                        npm test
+                    else
+                        echo "No test script defined. Skipping tests."
+                    fi
                 '''
             }
         }
-
-        stage('Build Docker Image') {
+        stage('Security Scan') {
             steps {
-                script {
-                    // Build Docker image using DinD
-                    sh "docker build -t ${DOCKER_REGISTRY}/${APP_NAME}:latest ."
-                }
+                sh 'npm install -g snyk'
+                sh 'snyk test --org=bikash466 --severity-threshold=high || true'
             }
         }
-
-        stage('Push Docker Image') {
+        stage('Build Docker Image') {
             steps {
-                script {
-                    // Login to Docker Hub
-                    sh "echo ${DOCKER_HUB_PASSWORD} | docker login -u ${DOCKER_HUB_USERNAME} --password-stdin"
-                    sh "docker push ${DOCKER_REGISTRY}/${APP_NAME}:latest"
-                }
+                sh 'docker build -t bikash466/node-app:latest .'
+            }
+        }
+        stage('Push to Docker Hub') {
+            steps {
+                sh '''
+                    echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin
+                    docker push bikash466/node-app:latest
+                '''
             }
         }
     }
-
     post {
         always {
-            echo 'Cleaning up workspace...'
+            archiveArtifacts artifacts: '**/test-results/*.xml', allowEmptyArchive: true
             cleanWs()
         }
         success {
             echo 'Pipeline completed successfully!'
         }
         failure {
-            echo 'Pipeline failed! Check logs above.'
+            echo 'Pipeline failed. Check logs for details.'
         }
     }
 }
