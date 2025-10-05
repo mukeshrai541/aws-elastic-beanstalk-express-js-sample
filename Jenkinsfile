@@ -2,7 +2,7 @@ pipeline {
     agent {
         docker {
             image 'node:16'
-            args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
+            args '-u root --env DOCKER_HOST=tcp://docker:2376 --env DOCKER_TLS_VERIFY=1 --env DOCKER_CERT_PATH=/certs/client'
         }
     }
     environment {
