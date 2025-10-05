@@ -44,19 +44,19 @@ pipeline {
         stage('Security Scan') {
             steps {
                 sh 'npm install -g snyk'
-                sh 'snyk test --org=bikash466 --severity-threshold=high || true'
+                sh 'snyk test --org=mukeshrai541 --severity-threshold=high || true'
             }
         }
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t bikash466/node-app:latest .'
+                sh 'docker build -t mukeshrai541/nodeapp:latest .'
             }
         }
         stage('Push to Docker Hub') {
             steps {
                 sh '''
                     echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin
-                    docker push bikash466/node-app:latest
+                    docker push muksehrai541/nodeapp:latest
                 '''
             }
         }
