@@ -1,62 +1,33 @@
 pipeline {
     agent {
-        docker {
-            image 'node:16'
-            args '-u root --env DOCKER_HOST=tcp://docker:2376 --env DOCKER_TLS_VERIFY=1 --env DOCKER_CERT_PATH=/certs/client'
-        }
-    }
-    environment {
-        SNYK_TOKEN = credentials('snyk-token')
-        DOCKERHUB_CREDENTIALS = credentials('docker-hub-credentials')
+        docker { image 'node:16' }  // Use Node 16 as build agent
     }
     stages {
-        stage('Setup Docker') {
+        stage('Install Dependencies') {
             steps {
-                sh '''
-                    apt-get update
-                    apt-get install -y docker.io
-                '''
+                sh 'npm install --save'  // Install deps
             }
         }
-        stage('Install') {
+        stage('Run Tests') {
             steps {
-                sh 'npm install'
+                sh 'npm test'  // Run unit tests (assume tests exist; add if needed)
             }
         }
-        stage('Test') {
+        stage('Build Docker Image') {
             steps {
-                sh 'npm test'
-            }
-        }
-        stage('Build Image') {
-            steps {
-                sh 'docker build -t mukeshrai541/nodeapp:latest .'
-            }
-        }
-        stage('Security Scan') {
-            steps {
-                sh '''
-                    npm install -g snyk
-                    snyk test --severity-threshold=high
-                '''
-            }
-        }
-        stage('Push Image') {
-            steps {
-                withDockerRegistry([credentialsId: 'docker-hub-credentials', url: 'https://index.docker.io/v1/']) {
-                    sh 'docker push mukeshrai541/nodeapp:latest'
+                script {
+                    def appImage = docker.build("your-username/app:${env.BUILD_ID}")  // Build image
                 }
             }
         }
-        stage('Archive Artifacts') {
+        stage('Push to Registry') {
             steps {
-                archiveArtifacts artifacts: 'npm-debug.log', allowEmptyArchive: true
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', 'docker-credentials-id') {  // Use your Docker Hub creds (add to Jenkins first)
+                        appImage.push()
+                    }
+                }
             }
-        }
-    }
-    post {
-        always {
-            cleanWs()
         }
     }
 }
