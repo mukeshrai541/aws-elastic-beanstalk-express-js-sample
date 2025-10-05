@@ -2,9 +2,10 @@ pipeline {
     agent {
         docker {
             image 'node:16'
-            args '-u root -v /usr/bin/docker:/usr/bin/docker -v /var/run/docker.sock:/var/run/docker.sock --env DOCKER_HOST=tcp://docker:2376 --env DOCKER_TLS_VERIFY=1 --env DOCKER_CERT_PATH=/certs/client'
+            args '-u root -v /usr/bin/docker:/usr/bin/docker -v /var/run/docker.sock:/var/run/docker.sock --privileged --env DOCKER_HOST=tcp://docker:2376 --env DOCKER_TLS_VERIFY=1 --env DOCKER_CERT_PATH=/certs/client'
         }
     }
+
     environment {
         SNYK_TOKEN = credentials('snyk-token') // Snyk API token
         DOCKERHUB_CREDENTIALS = credentials('docker-hub-credentials') // Docker Hub credentials
