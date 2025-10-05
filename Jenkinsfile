@@ -10,14 +10,6 @@ pipeline {
         DOCKERHUB_CREDENTIALS = credentials('docker-hub-credentials') // Docker Hub credentials
     }
     stages {
-        stage('Setup Docker') {
-            steps {
-                sh '''
-                    apt-get update
-                    apt-get install -y docker.io
-                '''
-            }
-        }
         stage('Install') {
             steps {
                 sh 'npm install --save'
