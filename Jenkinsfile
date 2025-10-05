@@ -5,6 +5,10 @@ pipeline {
             args '-u root --env DOCKER_HOST=tcp://docker:2376 --env DOCKER_TLS_VERIFY=1 --env DOCKER_CERT_PATH=/certs/client'
         }
     }
+    options {
+        // This is required if you want to clean before build
+        skipDefaultCheckout(true)
+    }
     environment {
         SNYK_TOKEN = credentials('snyk-token') // Snyk API token
         DOCKERHUB_CREDENTIALS = credentials('docker-hub-credentials') // Docker Hub credentials
