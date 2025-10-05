@@ -10,6 +10,7 @@ pipeline {
         DOCKER_HOST = "tcp://docker:2376"
         DOCKER_TLS_VERIFY = "1"
         DOCKER_CERT_PATH = "/certs/client"
+        SNYK_TOKEN = credentials('snyk-token')  // Binds the secret text to $SNYK_TOKEN
     }
     stages {
         stage('Install System Dependencies') {
@@ -45,7 +46,7 @@ pipeline {
             steps {
                 sh 'npm install -g snyk'
                 // sh 'snyk test --org=mukeshrai541 --severity-threshold=high || true'
-                sh 'snyk test --org=8b480cd6-8689-49de-94b0-1fba1a332bc0 --severity-threshold=high || true'
+                sh 'snyk test --org=$SNYK_TOKEN --severity-threshold=high || true'
             }
         }
         stage('Build Docker Image') {
